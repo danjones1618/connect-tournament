@@ -10,7 +10,7 @@ import math
 
 
 async def sendAction(ws, action, params={}):
-    await ws.send(json.dumps({"type": action, **params}))
+    await ws.send(json.dumps({"type": str(action), **params}))
 
 
 async def recvAction(ws):
@@ -69,32 +69,32 @@ class Game:
                 return 1 if match.group(1) else 2
         return None
 
-    def game(self):
+    async def game(self):
         while self.turn < self.boardWidth * self.boardHeight:
             ws = self.getWsForTurn()
 
-            sendAction(ws, Actions.TAKE_TURN)
+            await sendAction(ws, Actions.TAKE_TURN)
             msg = await recvAction(ws)
             if msg["type"] != Actions.TURN_COMPLETE:
                 # TODO handle this error
                 print("ERROR: expected to recv turn complete")
 
             if not self.canPlaceToken(msg["index"]):
-                sendAction(ws, Actions.INVALID_TURN)
+                await sendAction(ws, Actions.INVALID_TURN)
                 continue
 
             self.board[msg["index"]] = 1 if ws == self.ws1 else 2
-            sendAction(self.ws1, Actions.UPDATE_BOARD, {"board": self.board})
-            sendAction(self.ws2, Actions.UPDATE_BOARD, {"board": self.board})
+            await sendAction(self.ws1, Actions.UPDATE_BOARD, {"board": self.board})
+            await sendAction(self.ws2, Actions.UPDATE_BOARD, {"board": self.board})
 
             winner = self.getWinner()
             if winner:
                 if winner == 1:
-                    sendAction(self.ws1, Actions.WON)
-                    sendAction(self.ws2, Actions.LOST)
+                    await sendAction(self.ws1, Actions.WON)
+                    await sendAction(self.ws2, Actions.LOST)
                 else:
-                    sendAction(self.ws1, Actions.LOST)
-                    sendAction(self.ws2, Actions.WON)
+                    await sendAction(self.ws1, Actions.LOST)
+                    await sendAction(self.ws2, Actions.WON)
                 return winner
             else:
                 self.turn += 1
@@ -108,9 +108,19 @@ class Tournament:
         self.round = 0
 
 
+ws1 = None
+fin = False
 async def server(websocket, path):
-    while True:
-        msg = await websocket.recv()
+    global ws1
+    global fin
+    print(ws1, websocket)
+    if ws1 == None or ws1 is websocket:
+        ws1 = websocket
+    else:
+        print("Starting game")
+        g = Game(ws1, websocket)
+        await g.game()
+        fin = True
 
 asyncio.get_event_loop().run_until_complete(
     websockets.serve(server, 'localhost', 3080))
