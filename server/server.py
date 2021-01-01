@@ -8,12 +8,15 @@ import random
 import regex as re
 import math
 
+
 async def sendAction(ws, action, params={}):
     await ws.send(json.dumps({"type": action, **params}))
+
 
 async def recvAction(ws):
     msg = await ws.recv()
     return json.loads(msg)
+
 
 class Actions(Enum):
     SET_UUID = "SET_UUID"
@@ -23,6 +26,7 @@ class Actions(Enum):
     UPDATE_BOARD = "UPDATE_BOARD"
     WON = "WON"
     LOST = "LOST"
+
 
 class Game:
     def __init__(self, ws1, ws2):
@@ -37,7 +41,8 @@ class Game:
         x = index % self.boardWidth
         y = math.floor(index / self.boardWidth)
         return self.board[index] == 0 and \
-            (y == self.boardHeight or self.board[x + (y + 1) * self.boardWidth] == 0)
+            (y ==
+             self.boardHeight or self.board[x + (y + 1) * self.boardWidth] == 0)
 
     def getWsForTurn(self):
         if self.turn % 2 == 0:
@@ -50,9 +55,12 @@ class Game:
         # Row, Col, Forward Diag, Backwards Diag
         exps = [
             '(1){4}|(2){4}',
-            '(?:1.{{{}}}){3}(1)|(?:2.{{{}}}){3}(2)'.format(self.boardWidth-1, self.boardWidth-1),
-            '(?:1.{{{}}}){3}(1)|(?:2.{{{}}}){3}(2)'.format(self.boardWidth, self.boardWidth),
-            '(?:1.{{{}}}){3}(1)|(?:2.{{{}}}){3}(2)'.format(self.boardWidth-2, self.boardWidth-2)
+            '(?:1.{{{}}}){3}(1)|(?:2.{{{}}}){3}(2)'.format(
+                self.boardWidth-1, self.boardWidth-1),
+            '(?:1.{{{}}}){3}(1)|(?:2.{{{}}}){3}(2)'.format(
+                self.boardWidth, self.boardWidth),
+            '(?:1.{{{}}}){3}(1)|(?:2.{{{}}}){3}(2)'.format(
+                self.boardWidth-2, self.boardWidth-2)
         ]
         for exp in exps:
             r = re.compile(exp)
@@ -67,7 +75,7 @@ class Game:
 
             sendAction(ws, Actions.TAKE_TURN)
             msg = await recvAction(ws)
-            if msg["type"] != Actions.TAKE_TURN:
+            if msg["type"] != Actions.TURN_COMPLETE:
                 # TODO handle this error
                 print("ERROR: expected to recv turn complete")
 
@@ -92,11 +100,13 @@ class Game:
                 self.turn += 1
         return None
 
+
 class Tournament:
     def __init__(self, host):
         self.host = host
-        self.players = { host }
+        self.players = {host}
         self.round = 0
+
 
 async def server(websocket, path):
     while True:
